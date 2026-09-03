@@ -8,6 +8,8 @@ const meController = require('../controllers/meController');
 const dashboardController = require('../controllers/dashboardController');
 const userController = require('../controllers/userController');
 const reportController = require('../controllers/reportController');
+const questionController = require('../controllers/questionController');
+const communityController = require('../controllers/communityController');
 
 const router = express.Router();
 
@@ -28,5 +30,17 @@ router.patch('/users/:id/status', requireRole('SUPER_ADMIN', 'MODERATOR'), userC
 
 router.get('/reports', requireRole('SUPER_ADMIN', 'MODERATOR'), reportController.list);
 router.patch('/reports/:id/resolve', requireRole('SUPER_ADMIN', 'MODERATOR'), reportController.resolve);
+
+router.get('/questions', requireRole('SUPER_ADMIN', 'MODERATOR'), questionController.list);
+router.get('/questions/:id', requireRole('SUPER_ADMIN', 'MODERATOR'), questionController.getOne);
+router.get('/questions/:id/stats', requireRole('SUPER_ADMIN', 'MODERATOR', 'SUPPORT'), questionController.stats);
+router.post('/questions', requireRole('SUPER_ADMIN', 'MODERATOR'), questionController.create);
+router.patch('/questions/:id', requireRole('SUPER_ADMIN', 'MODERATOR'), questionController.update);
+router.delete('/questions/:id', requireRole('SUPER_ADMIN', 'MODERATOR'), questionController.remove);
+
+router.get('/community', requireRole('SUPER_ADMIN', 'MODERATOR'), communityController.list);
+router.patch('/community/:id/remove', requireRole('SUPER_ADMIN', 'MODERATOR'), communityController.remove);
+router.patch('/community/:id/restore', requireRole('SUPER_ADMIN', 'MODERATOR'), communityController.restore);
+router.patch('/community/:id/feature', requireRole('SUPER_ADMIN', 'MODERATOR'), communityController.feature);
 
 module.exports = router;

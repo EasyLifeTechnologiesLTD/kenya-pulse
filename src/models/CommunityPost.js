@@ -1,53 +1,34 @@
+// src/models/CommunityPost.js
+//
+// Minimal shape matching your `POST /api/community` (Share an Insight)
+// endpoint. Same note as User.js — if this already exists in your consumer
+// app codebase, import that instead of this file.
+
 const mongoose = require('mongoose');
 
-const communityPostSchema = new mongoose.Schema(
+const { Schema } = mongoose;
+
+const communityPostSchema = new Schema(
   {
-    anonId: {
+    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    county: { type: String, index: true },
+    text: { type: String, required: true, maxlength: 1000 },
+    tag: { type: String },
+    agreeCount: { type: Number, default: 0 },
+    // ── Moderation ──────────────────────────────────────────────────────
+    status: {
       type: String,
-      required: true,
-    },
-    county: {
-      type: String,
-      required: true,
+      enum: ['VISIBLE', 'REMOVED'],
+      default: 'VISIBLE',
       index: true,
     },
-    subLocation: {
-      // e.g. "Kisumu East" within Kisumu
-      type: String,
-      default: null,
-    },
-    text: {
-      type: String,
-      required: true,
-      maxlength: 600,
-    },
-    category: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    agreeCount: {
-      type: Number,
-      default: 0,
-    },
-    agreedBy: [
-      {
-        type: String, // anonId, prevents double-agreeing
-      },
-    ],
-    flagged: {
-      type: Boolean,
-      default: false,
-    },
-    moderationStatus: {
-      type: String,
-      enum: ['approved', 'pending', 'rejected'],
-      default: 'approved',
-    },
+    featured: { type: Boolean, default: false, index: true },
+
+    removedByAdmin: { type: Schema.Types.ObjectId, ref: 'AdminUser', default: null },
+    removedAt: { type: Date, default: null },
+    removalReason: { type: String, maxlength: 300 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-communityPostSchema.index({ createdAt: -1 });
-
-module.exports = mongoose.model('CommunityPost', communityPostSchema);
+module.exports = mongoose.models.CommunityPost || mongoose.model('CommunityPost', communityPostSchema);
