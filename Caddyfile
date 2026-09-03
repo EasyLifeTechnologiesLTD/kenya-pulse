@@ -1,7 +1,7 @@
 # Replace with your real domain - Caddy auto-provisions and renews a
 # Let's Encrypt TLS certificate for it. DNS must already point at this
 # server's IP before you start the stack, or certificate issuance fails.
-api.kenyapulse.stockpos.work.gd {
+api.masauti.com {
     reverse_proxy api:4000
 }
 
