@@ -1,5 +1,5 @@
-const DailyQuestion = require('../models/DailyQuestion');
-const { asyncHandler } = require('../utils/asyncHandler');
+const DailyQuestion = require("../models/DailyQuestion");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const startOfToday = () => {
   const d = new Date();
@@ -16,10 +16,39 @@ const getTodaysQuestion = asyncHandler(async (req, res) => {
   }).sort({ date: -1 });
 
   if (!question) {
-    return res.status(404).json({ message: 'No active question for today yet.' });
+    return res
+      .status(404)
+      .json({ message: "No active question for today yet." });
   }
 
   res.json(question);
 });
 
-module.exports = { getTodaysQuestion };
+const list = async () => {
+  // TODO: implement/delete
+};
+const getOne = async () => {
+  // TODO: implement/delete
+};
+const stats = async () => {
+  // TODO: implement/delete
+};
+const create = async () => {
+  // TODO: implement/delete
+};
+const update = async () => {
+  // TODO: implement/delete
+};
+const remove = async () => {
+  // TODO: implement/delete
+};
+
+module.exports = {
+  getTodaysQuestion,
+  list,
+  getOne,
+  stats,
+  create,
+  update,
+  remove,
+};

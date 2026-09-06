@@ -1,16 +1,18 @@
-const CommunityPost = require('../models/CommunityPost');
-const { asyncHandler } = require('../utils/asyncHandler');
+const CommunityPost = require("../models/CommunityPost");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 // GET /api/community?scope=all|county|following&county=Kisumu&page=1
 // Powers the "All / My County / Following" tabs on Community Insights.
 const getCommunityFeed = asyncHandler(async (req, res) => {
-  const { scope = 'all', county, page = 1, limit = 20 } = req.query;
+  const { scope = "all", county, page = 1, limit = 20 } = req.query;
 
-  const filter = { moderationStatus: 'approved' };
+  const filter = { moderationStatus: "approved" };
 
-  if (scope === 'county') {
+  if (scope === "county") {
     if (!county) {
-      return res.status(400).json({ message: 'county is required for scope=county' });
+      return res
+        .status(400)
+        .json({ message: "county is required for scope=county" });
     }
     filter.county = county;
   }
@@ -21,7 +23,7 @@ const getCommunityFeed = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(Number(limit))
-    .select('-agreedBy');
+    .select("-agreedBy");
 
   const total = await CommunityPost.countDocuments(filter);
 
@@ -57,11 +59,13 @@ const agreeToPost = asyncHandler(async (req, res) => {
   const user = req.user;
 
   if (!post) {
-    return res.status(404).json({ message: 'Post not found' });
+    return res.status(404).json({ message: "Post not found" });
   }
 
   if (post.agreedBy.includes(user.anonId)) {
-    return res.status(409).json({ message: 'You already agreed to this insight.' });
+    return res
+      .status(409)
+      .json({ message: "You already agreed to this insight." });
   }
 
   post.agreedBy.push(user.anonId);
@@ -71,4 +75,25 @@ const agreeToPost = asyncHandler(async (req, res) => {
   res.json({ agreeCount: post.agreeCount });
 });
 
-module.exports = { getCommunityFeed, createCommunityPost, agreeToPost };
+const list = async () => {
+  // TODO: implement/delete
+};
+const remove = async () => {
+  // TODO: implement/delete
+};
+const restore = async () => {
+  // TODO: implement/delete
+};
+const feature = async () => {
+  // TODO: implement/delete
+};
+
+module.exports = {
+  getCommunityFeed,
+  createCommunityPost,
+  agreeToPost,
+  list,
+  remove,
+  restore,
+  feature,
+};
