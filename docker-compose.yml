@@ -11,6 +11,8 @@ services:
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
+    ports:
+      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-citizenpulse}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
@@ -24,6 +26,7 @@ services:
       start_period: 10s
 
   api:
+    # image: ghcr.io/easylifetechnologiesltd/masauti:latest
     build: .
     restart: unless-stopped
     depends_on:
@@ -32,22 +35,13 @@ services:
     env_file:
       - .env
     environment:
-      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-citizenpulse}:${MONGO_ROOT_PASSWORD}@mongo:27017/masauti?authSource=admin&retryWrites=true&w=majority
+      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-citizenpulse}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:27017/masauti?authSource=admin&retryWrites=true&w=majority
     ports:
     - "127.0.0.1:8089:4000"
-
-  scheduler:
-    build: .
-    command: ["node", "utils/scheduler.js"]
-    restart: unless-stopped
-    depends_on:
-      mongo:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-citizenpulse}:${MONGO_ROOT_PASSWORD}@mongo:27017/masauti?authSource=admin&retryWrites=true&w=majority
-
+    labels:
+      - traefik.enable
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN?:set API_DOMAN in .env}`)"
+      - traefik.http.services.api.loadbalancer.server.port=${PORT:-4000}
 volumes:
   mongo_data:
   caddy_data:
