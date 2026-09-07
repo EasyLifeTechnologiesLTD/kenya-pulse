@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, preview]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    environment:
+      name: ${{ (github.event.workflow_run.head_branch || github.ref_name) == 'main' && 'production' || 'preview' }}
+      url: ${{ vars.DEPLOY_URL }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_PATH: ${{ secrets.BASE_PATH }}
+          DEPLOY_ENV: ${{ (github.event.workflow_run.head_branch || github.ref_name) == 'main' && 'production' || 'preview' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          # Forward values into the remote shell so the script reads them as env
+          # vars (the GITHUB_TOKEN also lets the host pull private ghcr images).
+          envs: GHCR_USER,GHCR_TOKEN,BASE_PATH,DEPLOY_ENV
+          script: |
+            set -e
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            # BASE_PATH may contain $HOME/~; expand it in the remote shell.
+            cd "$(eval echo "$BASE_PATH")/$DEPLOY_ENV"
+            docker compose pull api
+            docker compose up -d api
+            docker logout ghcr.io
+            docker image prune -f

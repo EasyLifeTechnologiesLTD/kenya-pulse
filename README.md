@@ -26,19 +26,19 @@ without identifying anyone.
 
 ## Endpoints
 
-| Screen | Method & Path | Notes |
-|---|---|---|
-| Home Dashboard | `GET /api/home/summary` | Kenya Mood Index, trending, AI daily summary |
-| Home Dashboard | `GET /api/questions/today` | Today's question + category options |
-| Home Dashboard | `POST /api/responses` 🔒 | "Submit My Voice" — updates streak/achievements |
-| Home Dashboard | `GET /api/counties` | All counties for the mood map |
-| County View | `GET /api/counties/:name` | Mood score, top issues, trend, sub-county breakdown |
-| Community Insights | `GET /api/community?scope=all\|county&county=X` | Paginated feed |
-| Community Insights | `POST /api/community` 🔒 | "Share an Insight" |
-| Community Insights | `POST /api/community/:id/agree` 🔒 | Heart / agree action |
-| My Contribution | `GET /api/users/me/contribution` 🔒 | Today's status, streak, achievements |
-| Onboarding | `POST /api/users/register-anon` | First-launch anonymous identity |
-| Onboarding | `PATCH /api/users/me/county` 🔒 | Set home county |
+| Screen             | Method & Path                                   | Notes                                               |
+| ------------------ | ----------------------------------------------- | --------------------------------------------------- |
+| Home Dashboard     | `GET /api/home/summary`                         | Kenya Mood Index, trending, AI daily summary        |
+| Home Dashboard     | `GET /api/questions/today`                      | Today's question + category options                 |
+| Home Dashboard     | `POST /api/responses` 🔒                        | "Submit My Voice" — updates streak/achievements     |
+| Home Dashboard     | `GET /api/counties`                             | All counties for the mood map                       |
+| County View        | `GET /api/counties/:name`                       | Mood score, top issues, trend, sub-county breakdown |
+| Community Insights | `GET /api/community?scope=all\|county&county=X` | Paginated feed                                      |
+| Community Insights | `POST /api/community` 🔒                        | "Share an Insight"                                  |
+| Community Insights | `POST /api/community/:id/agree` 🔒              | Heart / agree action                                |
+| My Contribution    | `GET /api/users/me/contribution` 🔒             | Today's status, streak, achievements                |
+| Onboarding         | `POST /api/users/register-anon`                 | First-launch anonymous identity                     |
+| Onboarding         | `PATCH /api/users/me/county` 🔒                 | Set home county                                     |
 
 🔒 = requires `Authorization: Bearer <token>`
 
