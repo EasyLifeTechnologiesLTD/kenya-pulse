@@ -1,3 +1,6 @@
+// scripts/seed.js
+
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../src/config/db');
@@ -84,7 +87,7 @@ const run = async () => {
     CommunityPost.deleteMany({}),
   ]);
 
-  seedAdmin();
+  await seedAdmin();
 
   const counties = KENYA_COUNTIES.map((name) => ({
     name,

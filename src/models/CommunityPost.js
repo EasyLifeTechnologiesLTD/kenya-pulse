@@ -10,7 +10,7 @@ const { Schema } = mongoose;
 
 const communityPostSchema = new Schema(
   {
-    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    author: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     county: { type: String, index: true },
     text: { type: String, required: true, maxlength: 1000 },
     tag: { type: String },
