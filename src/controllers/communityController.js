@@ -1,5 +1,6 @@
 const CommunityPost = require("../models/CommunityPost");
 const { asyncHandler } = require("../utils/asyncHandler");
+const communityAdminService = require('../services/communityAdminService');
 
 // GET /api/community?scope=all|county|following&county=Kisumu&page=1
 // Powers the "All / My County / Following" tabs on Community Insights.
@@ -75,18 +76,42 @@ const agreeToPost = asyncHandler(async (req, res) => {
   res.json({ agreeCount: post.agreeCount });
 });
 
-const list = async () => {
-  // TODO: implement/delete
-};
-const remove = async () => {
-  // TODO: implement/delete
-};
-const restore = async () => {
-  // TODO: implement/delete
-};
-const feature = async () => {
-  // TODO: implement/delete
-};
+const list = asyncHandler(async (req, res) => {
+  const { page, limit, sort, order, status, county, featured, search } = req.query;
+
+  const result = await communityAdminService.listPosts({
+    page: page ? Number(page) : 1,
+    limit: limit ? Number(limit) : 25,
+    sort: sort || 'createdAt',
+    order: order === 'asc' ? 'asc' : 'desc',
+    status,
+    county,
+    featured,
+    search,
+  });
+
+  res.json(result);
+});
+
+const remove = asyncHandler(async (req, res) => {
+  const { reason } = req.body;
+  const post = await communityAdminService.removePost(req.params.id, req.admin.id, reason);
+  if (!post) throw new ApiError(404, 'Post not found');
+  res.json({ success: true });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const post = await communityAdminService.restorePost(req.params.id);
+  if (!post) throw new ApiError(404, 'Post not found');
+  res.json({ success: true });
+});
+
+const feature = asyncHandler(async (req, res) => {
+  const { featured } = req.body;
+  const post = await communityAdminService.setFeatured(req.params.id, featured);
+  if (!post) throw new ApiError(404, 'Post not found');
+  res.json({ success: true });
+});
 
 module.exports = {
   getCommunityFeed,

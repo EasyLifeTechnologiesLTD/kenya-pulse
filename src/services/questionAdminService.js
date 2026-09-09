@@ -27,72 +27,72 @@ async function listQuestions({ page = 1, limit = 25, status, search }) {
   const filter = {};
   const today = todayUTC();
 
-  if (status === 'SCHEDULED') filter.scheduledFor = { $gt: today };
-  else if (status === 'ACTIVE') filter.scheduledFor = today;
-  else if (status === 'PAST') filter.scheduledFor = { $lt: today };
+  if (status === 'SCHEDULED') filter.date = { $gt: today };
+  else if (status === 'ACTIVE') filter.date = today;
+  else if (status === 'PAST') filter.date = { $lt: today };
 
   if (search) filter.text = new RegExp(escapeRegex(search), 'i');
 
   const skip = (Math.max(1, page) - 1) * limit;
 
   const [docs, total] = await Promise.all([
-    DailyQuestion.find(filter).sort({ scheduledFor: -1 }).skip(skip).limit(limit),
+    DailyQuestion.find(filter).sort({ date: -1 }).skip(skip).limit(limit),
     DailyQuestion.countDocuments(filter),
   ]);
 
-  const data = docs.map((q) => ({ ...q.toObject(), status: deriveStatus(q.scheduledFor) }));
+  const data = docs.map((q) => ({ ...q.toObject(), status: deriveStatus(q.date) }));
   return { data, total };
 }
 
 async function getQuestionById(id) {
   const q = await DailyQuestion.findById(id);
   if (!q) return null;
-  return { ...q.toObject(), status: deriveStatus(q.scheduledFor) };
+  return { ...q.toObject(), status: deriveStatus(q.date) };
 }
 
 async function createQuestion({ text, categoryOptions, scheduledFor }, adminId) {
   const normalizedDate = toMidnightUTC(scheduledFor);
 
-  const existing = await DailyQuestion.findOne({ scheduledFor: normalizedDate });
+  const existing = await DailyQuestion.findOne({ date: normalizedDate });
   if (existing) throw new ApiError(409, 'A question is already scheduled for that date');
 
   const question = await DailyQuestion.create({
     text,
     categoryOptions,
-    scheduledFor: normalizedDate,
+    date: normalizedDate,
     createdByAdmin: adminId,
   });
 
-  return { ...question.toObject(), status: deriveStatus(question.scheduledFor) };
+  return { ...question.toObject(), status: deriveStatus(question.date) };
 }
 
 async function updateQuestion(id, updates) {
   const question = await DailyQuestion.findById(id);
   if (!question) return null;
 
-  if (deriveStatus(question.scheduledFor) === 'PAST') {
+  if (deriveStatus(question.date) === 'PAST') {
     throw new ApiError(400, 'Cannot edit a question that has already run');
   }
 
   if (updates.text !== undefined) question.text = updates.text;
   if (updates.categoryOptions !== undefined) question.categoryOptions = updates.categoryOptions;
-  if (updates.scheduledFor !== undefined) {
-    const normalizedDate = toMidnightUTC(updates.scheduledFor);
-    const clash = await DailyQuestion.findOne({ scheduledFor: normalizedDate, _id: { $ne: id } });
+  if (updates.date !== undefined) {
+    const normalizedDate = toMidnightUTC(updates.date);
+    const clash = await DailyQuestion.findOne({ date: normalizedDate, _id: { $ne: id } });
     if (clash) throw new ApiError(409, 'A question is already scheduled for that date');
-    question.scheduledFor = normalizedDate;
+    question.date = normalizedDate;
   }
   if (updates.active !== undefined) question.active = updates.active;
 
   await question.save();
-  return { ...question.toObject(), status: deriveStatus(question.scheduledFor) };
+  return { ...question.toObject(), status: deriveStatus(question.date) };
 }
 
 async function deleteQuestion(id) {
   const question = await DailyQuestion.findById(id);
   if (!question) return null;
 
-  if (deriveStatus(question.scheduledFor) !== 'SCHEDULED') {
+  if (deriveStatus(question.date) !== 'SCHEDULED') {
     throw new ApiError(400, 'Only future (not yet active) questions can be deleted');
   }
 
@@ -130,7 +130,7 @@ async function getQuestionStats(id) {
   return {
     questionId: question._id,
     text: question.text,
-    scheduledFor: question.scheduledFor,
+    date: question.date,
     totalResponses: total,
     byCategory: byCategoryWithLabels,
     byCounty: byCounty.map((r) => ({ county: r._id || '(unknown)', count: r.count })),
