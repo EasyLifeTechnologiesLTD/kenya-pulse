@@ -8,5 +8,6 @@ router.use('/counties', require('./counties'));
 router.use('/trends', require('./trends'));
 router.use('/home', require('./home'));
 router.use('/community', require('./community'));
+router.use('/locations', require('./locations'));
 
 module.exports = router;

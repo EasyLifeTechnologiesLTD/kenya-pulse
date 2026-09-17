@@ -1,6 +1,8 @@
 const DailyQuestion = require("../models/DailyQuestion");
 const { asyncHandler } = require("../utils/asyncHandler");
 const questionAdminService = require('../services/questionAdminService');
+const { ApiError } = require('../utils/ApiError');
+
 
 const startOfToday = () => {
   const d = new Date();
@@ -9,21 +11,16 @@ const startOfToday = () => {
 };
 
 // GET /api/questions/today
-// Powers the "Today's Question" card on the Home Dashboard.
-const getTodaysQuestion = asyncHandler(async (req, res) => {
-  const question = await DailyQuestion.findOne({
+// Powers the "Today's Question" card + any bonus questions on the Home Dashboard.
+const getTodaysQuestions = asyncHandler(async (req, res) => {
+  const questions = await DailyQuestion.find({
     date: { $gte: startOfToday() },
     active: true,
-  }).sort({ date: -1 });
+  }).sort({ isPrimary: -1, date: -1 }); // primary first, then newest
 
-  if (!question) {
-    return res
-      .status(404)
-      .json({ message: "No active question for today yet." });
-  }
-
-  res.json(question);
+  res.json(questions);
 });
+
 
 const list = asyncHandler(async (req, res) => {
   const { page, limit, status, search } = req.query;
@@ -81,7 +78,7 @@ const stats = asyncHandler(async (req, res) => {
 
 
 module.exports = {
-  getTodaysQuestion,
+  getTodaysQuestions,
   list,
   getOne,
   stats,

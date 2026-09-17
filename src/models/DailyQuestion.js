@@ -22,6 +22,15 @@ const dailyQuestionSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isPrimary: {
+      type: Boolean,
+      default: false,
+    },
+    locationConfig: {
+      county: { type: String, enum: ['required', 'optional', 'hidden'], default: 'hidden' },
+      constituency: { type: String, enum: ['required', 'optional', 'hidden'], default: 'hidden' },
+      ward: { type: String, enum: ['required', 'optional', 'hidden'], default: 'hidden' },
+    },
   },
   { timestamps: true }
 );
