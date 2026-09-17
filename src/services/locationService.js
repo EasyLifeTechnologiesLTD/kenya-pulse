@@ -1,6 +1,8 @@
 const Location = require('../models/Location');
 const { ApiError } = require('../utils/ApiError');
 
+const mongoose = require('mongoose');
+
 const getCounties = async () => {
   return Location.find({ type: 'county' }).sort({ name: 1 }).select('code name -_id');
 };
@@ -36,7 +38,6 @@ const validateParent = async (type, parentCode) => {
     if (parentCode) throw new ApiError(400, `type "county" must not have a parentCode`);
     return;
   }
-
   if (!parentCode) {
     throw new ApiError(400, `type "${type}" requires a parentCode (${expectedParentType} code)`);
   }
@@ -48,34 +49,42 @@ const validateParent = async (type, parentCode) => {
 };
 
 const createLocation = async ({ code, name, type, parentCode }) => {
-  if (!code || !name || !type) {
-    throw new ApiError(400, 'code, name, and type are required');
-  }
-  if (!['county', 'constituency', 'ward'].includes(type)) {
-    throw new ApiError(400, `invalid type "${type}"`);
-  }
+  if (!code || !name || !type) throw new ApiError(400, 'code, name, and type are required');
+  if (!['county', 'constituency', 'ward'].includes(type)) throw new ApiError(400, `invalid type "${type}"`);
 
   await validateParent(type, parentCode ?? null);
 
-  const existing = await Location.findOne({ code });
-  if (existing) throw new ApiError(409, `location with code "${code}" already exists`);
+  // scoped by (type, code), not code alone — a ward and a county can share "001"
+  const existing = await Location.findOne({ code, type });
+  if (existing) throw new ApiError(409, `location with code "${code}" and type "${type}" already exists`);
 
   return Location.create({ code, name, type, parentCode: parentCode ?? null });
 };
 
-// Bulk upsert — this is the realistic path for loading 47 counties / 290
-// constituencies / 1450+ wards, and for re-running corrections against the
-// same source file without creating duplicates.
 const bulkUpsertLocations = async (records) => {
   if (!Array.isArray(records) || records.length === 0) {
     throw new ApiError(400, 'records must be a non-empty array');
   }
 
-  const seenCodes = new Set();
+
+  const collection = mongoose.connection.collection('locations');
+
+  const indexes = await collection.indexes();
+  const hasOldIndex = indexes.some((i) => i.name === 'code_1');
+
+  if (hasOldIndex) {
+    await collection.dropIndex('code_1');
+    console.log('Dropped stale index: code_1');
+  } else {
+    console.log('code_1 index not found — nothing to drop');
+  }
+
+  // recreate correctly scoped by type
+  await collection.createIndex({ type: 1, code: 1 }, { unique: true });
+
+  const seenKeys = new Set(); // keyed by type+code, not code alone
   const errors = [];
 
-  // Validate structurally first — before touching the DB — so a bad row
-  // fails the whole batch instead of leaving a half-applied import.
   records.forEach((r, i) => {
     if (!r.code || !r.name || !r.type) {
       errors.push({ index: i, code: r.code, error: 'code, name, and type are required' });
@@ -85,22 +94,18 @@ const bulkUpsertLocations = async (records) => {
       errors.push({ index: i, code: r.code, error: `invalid type "${r.type}"` });
       return;
     }
-    if (seenCodes.has(r.code)) {
-      errors.push({ index: i, code: r.code, error: 'duplicate code within this request payload' });
+    const key = `${r.type}:${r.code}`;
+    if (seenKeys.has(key)) {
+      errors.push({ index: i, code: r.code, error: `duplicate (type="${r.type}", code="${r.code}") within this request payload` });
       return;
     }
-    seenCodes.add(r.code);
+    seenKeys.add(key);
   });
 
-  if (errors.length > 0) {
-    throw new ApiError(400, 'validation failed', { errors });
-  }
+  if (errors.length > 0) throw new ApiError(400, 'validation failed', { errors });
 
-  // Parent-reference validation: allow a batch to include parents and their
-  // children in the same request (e.g. seeding constituencies + wards
-  // together), so a parentCode is valid if it exists in the DB OR earlier
-  // in this same batch.
-  const codesInBatch = new Set(records.map((r) => r.code));
+  // parent references also scoped by (type, code) — "codesInBatch" needs the same key shape
+  const keysInBatch = new Set(records.map((r) => `${r.type}:${r.code}`));
   const parentValidationErrors = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -115,11 +120,11 @@ const bulkUpsertLocations = async (records) => {
       parentValidationErrors.push({ index: i, code, error: `${type} requires a parentCode` });
       continue;
     }
-    if (codesInBatch.has(parentCode)) continue; // satisfied within this batch
+    if (keysInBatch.has(`${expectedParentType}:${parentCode}`)) continue; // satisfied within batch
 
     const parentExists = await Location.exists({ code: parentCode, type: expectedParentType });
     if (!parentExists) {
-      parentValidationErrors.push({ index: i, code, error: `parentCode "${parentCode}" not found in DB or batch` });
+      parentValidationErrors.push({ index: i, code, error: `parentCode "${parentCode}" (${expectedParentType}) not found in DB or batch` });
     }
   }
 
@@ -127,10 +132,12 @@ const bulkUpsertLocations = async (records) => {
     throw new ApiError(400, 'parent validation failed', { errors: parentValidationErrors });
   }
 
+  // upsert filter must include type — otherwise updateOne({ code: '001' })
+  // could match the county row when you meant the constituency row
   const bulkOps = records.map((r) => ({
     updateOne: {
-      filter: { code: r.code },
-      update: { $set: { name: r.name, type: r.type, parentCode: r.parentCode ?? null } },
+      filter: { code: r.code, type: r.type },
+      update: { $set: { name: r.name, parentCode: r.parentCode ?? null } },
       upsert: true,
     },
   }));
@@ -145,10 +152,4 @@ const bulkUpsertLocations = async (records) => {
   };
 };
 
-module.exports = {
-  getCounties,
-  getConstituencies,
-  getWards,
-  createLocation,
-  bulkUpsertLocations,
-};
+module.exports = { getCounties, getConstituencies, getWards, createLocation, bulkUpsertLocations };
