@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { getTodaysQuestion } = require('../controllers/questionController');
+const { getTodaysQuestions } = require('../controllers/questionController');
 
-router.get('/today', getTodaysQuestion);
+router.get('/today', getTodaysQuestions);
 
 module.exports = router;
