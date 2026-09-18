@@ -3,6 +3,7 @@ const DailyQuestion = require('../models/DailyQuestion');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { ApiError } = require('../utils/ApiError');
 const OutboxEvent = require('../models/OutboxEvent');
+const mongoose = require('mongoose');
 
 const ACHIEVEMENTS = {
   COMMUNITY_VOICE: {
