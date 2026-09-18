@@ -14,6 +14,10 @@ const startOfToday = () => {
 // GET /api/questions/today
 // Powers the "Today's Question" card + any bonus questions on the Home Dashboard.
 const getTodaysQuestions = asyncHandler(async (req, res) => {
+  if (!req.user?.anonId) {
+    throw new ApiError(401, 'Authentication required');
+  }
+
   let questions = await DailyQuestion.find({
     date: { $gte: startOfToday() },
     active: true,
