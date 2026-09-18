@@ -1,6 +1,8 @@
 const Response = require('../models/Response');
 const DailyQuestion = require('../models/DailyQuestion');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { ApiError } = require('../utils/ApiError');
+const OutboxEvent = require('../models/OutboxEvent');
 
 const ACHIEVEMENTS = {
   COMMUNITY_VOICE: {
@@ -127,24 +129,53 @@ const submitResponse = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'You have already responded to this question for this location.');
   }
 
+  const session = await mongoose.startSession();
   let response;
+
   try {
-    response = await Response.create({
-      anonId: user.anonId,
-      questionId,
-      category,
-      note,
-      location: resolvedLocation,
-      locationSignature,
+    await session.withTransaction(async () => {
+      const created = await Response.create(
+        [
+          {
+            anonId: user.anonId,
+            questionId,
+            category,
+            note,
+            location: resolvedLocation,
+            locationSignature,
+          },
+        ],
+        { session }
+      );
+      response = created[0];
+
+      await OutboxEvent.create(
+        [
+          {
+            aggregateType: 'Response',
+            aggregateId: response._id,
+            eventType: 'response.created',
+            payload: {
+              responseId: response._id,
+              questionId: response.questionId,
+              questionText: question.text,
+              category: response.category,
+              location: response.location,
+              note: response.note,
+              createdAt: response.createdAt,
+            },
+          },
+        ],
+        { session }
+      );
     });
   } catch (err) {
-    // Race condition backstop: two near-simultaneous submits for the same
-    // anonId+questionId+location can both pass the findOne check above.
-    // The unique index catches it here; surface it as the same 409.
     if (err.code === 11000) {
-      throw new ApiError(409, 'You have already responded to this question for this location.');
+      throw new ApiError(409, 'You have already responded to this question for this location and category.');
     }
     throw err;
+  } finally {
+    await session.endSession();
   }
 
   updateStreakAndAchievements(user);
