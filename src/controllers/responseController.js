@@ -3,7 +3,6 @@ const DailyQuestion = require('../models/DailyQuestion');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { ApiError } = require('../utils/ApiError');
 const OutboxEvent = require('../models/OutboxEvent');
-const mongoose = require('mongoose');
 
 const ACHIEVEMENTS = {
   COMMUNITY_VOICE: {
@@ -130,53 +129,54 @@ const submitResponse = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'You have already responded to this question for this location.');
   }
 
-  const session = await mongoose.startSession();
   let response;
 
   try {
-    await session.withTransaction(async () => {
-      const created = await Response.create(
-        [
-          {
-            anonId: user.anonId,
-            questionId,
-            category,
-            note,
-            location: resolvedLocation,
-            locationSignature,
-          },
-        ],
-        { session }
-      );
-      response = created[0];
-
-      await OutboxEvent.create(
-        [
-          {
-            aggregateType: 'Response',
-            aggregateId: response._id,
-            eventType: 'response.created',
-            payload: {
-              responseId: response._id,
-              questionId: response.questionId,
-              questionText: question.text,
-              category: response.category,
-              location: response.location,
-              note: response.note,
-              createdAt: response.createdAt,
-            },
-          },
-        ],
-        { session }
-      );
+    // Step 1: create the Response first
+    response = await Response.create({
+      anonId: user.anonId,
+      questionId,
+      category,
+      note,
+      location: resolvedLocation,
+      locationSignature,
     });
   } catch (err) {
     if (err.code === 11000) {
       throw new ApiError(409, 'You have already responded to this question for this location and category.');
     }
     throw err;
-  } finally {
-    await session.endSession();
+  }
+
+  try {
+    // Step 2: create the OutboxEvent
+    await OutboxEvent.create({
+      aggregateType: 'Response',
+      aggregateId: response._id,
+      eventType: 'response.created',
+      payload: {
+        responseId: response._id,
+        questionId: response.questionId,
+        questionText: question.text,
+        category: response.category,
+        location: response.location,
+        note: response.note,
+        createdAt: response.createdAt,
+      },
+    });
+  } catch (err) {
+    // Compensate: undo step 1 since step 2 failed
+    await Response.deleteOne({ _id: response._id }).catch((cleanupErr) => {
+      // Compensation itself failed — this needs to be surfaced loudly,
+      // not swallowed, since you now have an orphaned Response with no event.
+      console.error('CRITICAL: failed to compensate Response after OutboxEvent failure', {
+        responseId: response._id,
+        originalError: err,
+        cleanupError: cleanupErr,
+      });
+    });
+
+    throw err;
   }
 
   updateStreakAndAchievements(user);
