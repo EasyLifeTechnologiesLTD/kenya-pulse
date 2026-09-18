@@ -50,9 +50,21 @@ const getTodaysQuestions = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json(questions);
-});
+  // Flag which of today's questions this user has already answered.
+  const questionIds = questions.map((q) => q._id);
+  const respondedIds = await Response.find({
+    anonId: req.user.anonId,
+    questionId: { $in: questionIds },
+  }).distinct('questionId');
+  const respondedSet = new Set(respondedIds.map((id) => id.toString()));
 
+  const result = questions.map((q) => ({
+    ...q.toObject(),
+    hasResponded: respondedSet.has(q._id.toString()),
+  }));
+
+  res.json(result);
+});
 
 const list = asyncHandler(async (req, res) => {
   const { page, limit, status, search } = req.query;

@@ -65,7 +65,7 @@ const updateStreakAndAchievements = (user) => {
 // POST /api/responses
 // The "Submit My Voice" action.
 const submitResponse = asyncHandler(async (req, res) => {
-  const { questionId, category, county, note } = req.body;
+  const { questionId, category, note, location } = req.body;
   const user = req.user;
 
   const question = await DailyQuestion.findById(questionId);
@@ -77,8 +77,12 @@ const submitResponse = asyncHandler(async (req, res) => {
     anonId: user.anonId,
     questionId,
     category,
-    county: county || user.county,
     note,
+    location: {
+      county: location?.county ?? (user.county ? { code: user.county } : null),
+      constituency: location?.constituency ?? null,
+      ward: location?.ward ?? null,
+    },
   });
 
   updateStreakAndAchievements(user);

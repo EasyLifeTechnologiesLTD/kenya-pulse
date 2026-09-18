@@ -22,10 +22,10 @@ const responseSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    county: {
-      type: String,
-      required: true,
-      index: true,
+    location: {
+      county: { code: String, name: String },
+      constituency: { code: String, name: String },
+      ward: { code: String, name: String },
     },
     note: {
       type: String,
