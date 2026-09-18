@@ -1,4 +1,5 @@
 const DailyQuestion = require("../models/DailyQuestion");
+const Response = require('../models/Response');
 const { asyncHandler } = require("../utils/asyncHandler");
 const questionAdminService = require('../services/questionAdminService');
 const { ApiError } = require('../utils/ApiError');
