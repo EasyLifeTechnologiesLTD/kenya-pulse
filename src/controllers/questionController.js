@@ -31,6 +31,25 @@ const getTodaysQuestions = asyncHandler(async (req, res) => {
     }
   }
 
+  // Ensure whichever question is primary has location required,
+  // regardless of whether it came from the normal query or the fallback.
+  const primary = questions.find((q) => q.isPrimary);
+  if (primary) {
+    const needsUpdate =
+      primary.locationConfig?.county !== 'required' ||
+      primary.locationConfig?.constituency !== 'required' ||
+      primary.locationConfig?.ward !== 'required';
+
+    if (needsUpdate) {
+      primary.locationConfig = {
+        county: 'required',
+        constituency: 'required',
+        ward: 'required',
+      };
+      await primary.save();
+    }
+  }
+
   res.json(questions);
 });
 
