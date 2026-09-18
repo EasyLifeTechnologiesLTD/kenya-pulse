@@ -62,6 +62,13 @@ const updateStreakAndAchievements = (user) => {
   if (user.streak.current >= 30) grant(ACHIEVEMENTS.THIRTY_DAY_CONTRIBUTOR);
 };
 
+const buildLocationSignature = (location) =>
+  [
+    location?.county?.code ?? '',
+    location?.constituency?.code ?? '',
+    location?.ward?.code ?? '',
+  ].join('|');
+
 // POST /api/responses
 // The "Submit My Voice" action.
 const submitResponse = asyncHandler(async (req, res) => {
@@ -73,17 +80,72 @@ const submitResponse = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Question not found' });
   }
 
-  const response = await Response.create({
+  const OLD_INDEX_NAMES = [
+    'anonId_1_questionId_1',
+    'anonId_1_questionId_1_location.county.code_1_location.constituency.code_1_location.ward.code_1',
+  ];
+
+  const existingIndexes = await Response.collection.indexes();
+  console.log('Existing indexes:', existingIndexes.map((i) => i.name));
+
+  for (const name of OLD_INDEX_NAMES) {
+    const exists = existingIndexes.some((i) => i.name === name);
+    if (!exists) {
+      console.log(`Skipping "${name}" — not present`);
+      continue;
+    }
+    try {
+      await Response.collection.dropIndex(name);
+      console.log(`Dropped index "${name}"`);
+    } catch (err) {
+      console.error(`Failed to drop index "${name}":`, err.message);
+    }
+  }
+
+  // Creates any index declared in the current schema that's missing,
+  // and drops any index on the collection that's no longer in the schema
+  // (excluding the default _id index).
+  const syncResult = await Response.syncIndexes();
+  console.log('syncIndexes result:', syncResult);
+
+  const resolvedLocation = {
+    county: location?.county ?? (user.county ? { code: user.county } : null),
+    constituency: location?.constituency ?? null,
+    ward: location?.ward ?? null,
+  };
+
+  const locationSignature = buildLocationSignature(resolvedLocation);
+
+  const duplicate = await Response.findOne({
     anonId: user.anonId,
     questionId,
+    locationSignature,
     category,
-    note,
-    location: {
-      county: location?.county ?? (user.county ? { code: user.county } : null),
-      constituency: location?.constituency ?? null,
-      ward: location?.ward ?? null,
-    },
   });
+
+  if (duplicate) {
+    throw new ApiError(409, 'You have already responded to this question for this location.');
+  }
+
+  let response;
+  try {
+    response = await Response.create({
+      anonId: user.anonId,
+      questionId,
+      category,
+      note,
+      location: resolvedLocation,
+      locationSignature,
+    });
+  } catch (err) {
+    // Race condition backstop: two near-simultaneous submits for the same
+    // anonId+questionId+location can both pass the findOne check above.
+    // The unique index catches it here; surface it as the same 409.
+    if (err.code === 11000) {
+      throw new ApiError(409, 'You have already responded to this question for this location.');
+    }
+    throw err;
+  }
 
   updateStreakAndAchievements(user);
   await user.save();

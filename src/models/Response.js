@@ -27,6 +27,9 @@ const responseSchema = new mongoose.Schema(
       constituency: { code: String, name: String },
       ward: { code: String, name: String },
     },
+    locationSignature: {
+      type: String,
+    },
     note: {
       type: String,
       maxlength: 500,
@@ -36,7 +39,13 @@ const responseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One response per user per question (prevents spamming a day's poll)
-responseSchema.index({ anonId: 1, questionId: 1 }, { unique: true });
+// One response per user per question per location per category — allows the
+// same user to answer the same question from multiple locations, and to
+// submit multiple categories for the same question+location, but blocks an
+// exact repeat of question+location+category.
+responseSchema.index(
+  { anonId: 1, questionId: 1, locationSignature: 1, category: 1 },
+  { unique: true }
+);
 
 module.exports = mongoose.model('Response', responseSchema);
