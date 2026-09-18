@@ -13,10 +13,23 @@ const startOfToday = () => {
 // GET /api/questions/today
 // Powers the "Today's Question" card + any bonus questions on the Home Dashboard.
 const getTodaysQuestions = asyncHandler(async (req, res) => {
-  const questions = await DailyQuestion.find({
+  let questions = await DailyQuestion.find({
     date: { $gte: startOfToday() },
     active: true,
   }).sort({ isPrimary: -1, date: -1 }); // primary first, then newest
+
+  if (questions.length === 0) {
+    const template = await DailyQuestion.findOne().sort({ _id: 1 });
+    if (template) {
+      const todaysCopy = await DailyQuestion.create({
+        ...template.toObject(),
+        _id: undefined,
+        date: new Date(),
+        isPrimary: true,
+      });
+      questions = [todaysCopy];
+    }
+  }
 
   res.json(questions);
 });
